@@ -1,0 +1,20 @@
+{
+  "name": "one-image-backup",
+  "version": "1.0.0",
+  "description": "Backup OpenNebula Persistant Images. If image is used, backup using snapshot.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "opennebula",
+    "image",
+    "backup",
+    "snapshot"
+  ],
+  "author": "Kristian Feldsam",
+  "license": "MIT",
+  "dependencies": {
+    "opennebula": "^1.0.8"
+  }
+}
