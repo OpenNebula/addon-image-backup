@@ -113,7 +113,8 @@ function processImage(image, callback){
 	        }
 	        
 	        if(program.dryRun){
-	            return;
+                var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
+                return callback(null, cmd);
 			}
 			
             return vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
@@ -135,7 +136,8 @@ function processImage(image, callback){
 	            }
 	            
                 if(program.dryRun){
-		            return;
+                    var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
+                    return callback(null, cmd);
 				}
 				
                 vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
@@ -202,4 +204,9 @@ function generateBackupCmd(type, image, snapId)
 	}
 	
 	return cmd;
+}
+
+function randomInt(low, high)
+{
+    return Math.floor(Math.random() * (high - low) + low);
 }
