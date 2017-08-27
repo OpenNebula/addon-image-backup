@@ -82,19 +82,17 @@ function main(){
 
                     for(var cmdKey in backupCmd){
                         var cmd = backupCmd[cmdKey];
+                        var options = {silent : true};
 
                         if(program.verbose){
                             console.log('Run cmd: ' + cmd);
+                            var options = {silent : false};
                         }
 
-                        var result = shell.exec(cmd);
+                        var result = shell.exec(cmd, options);
 
                         if(result.stderr){
                             process.exit(1);
-                        }
-
-                        if(program.verbose){
-                            console.log(result.stdout);
                         }
                     }
                 });
