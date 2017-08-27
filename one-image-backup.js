@@ -4,6 +4,7 @@ const program = require('commander');
 const readline = require('readline');
 const opennebula = require('opennebula');
 const fs = require('fs');
+const async = require('async');
 const shell = require('shelljs');
 const config = require('./config');
 var one;
@@ -40,44 +41,66 @@ else
 function main(){
 	// connect to one
 	one = new opennebula(config.user+':'+config.token, config.address);
-	
-	// get images
-	one.getImages(function(err, images){
-	    if(err) return console.log(err);
-	
-	    for(var key in images){
-	        var image = images[key];
-	
-	        if(image.DATASTORE_ID === '1'){
-	            processImage(image, function(err, backupCmd){
-	                if(err) return console.log(err);
-	
-					// dry run, just print out commands
-					if(program.dryRun){
-						return console.log(backupCmd.join("\n"));
-					}
-	                
-	                for(key in backupCmd){
-		                var cmd = backupCmd[key];
-		                
-		                if(program.verbose){
-			                console.log('Run cmd: ' + cmd);
-		                }
-		                
-		                var result = shell.exec(cmd);
-		                
-		                if(result.stderr){
-			                process.exit(1);
-		                }
-		                
-		                if(program.verbose){
-			                console.log(result.stdout);
-			            }
-	                }
-	            });
-	        }
-	    }
-	}, -2);
+
+    async.parallel({
+        datastores: function(callback) {
+            one.getDatastores(function(err, datastores) {
+                if (err) return callback(err);
+
+                var result = {};
+
+                for(var key in datastores){
+                    var ds = datastores[key];
+                    result[ds.ID] = ds;
+                }
+
+                callback(null, result);
+            }, -2);
+        },
+        images: function(callback) {
+            one.getImages(function(err, images) {
+                if (err) return callback(err);
+
+                callback(null, images);
+            }, -2);
+        }
+    }, function(err, results) {
+        // iterate over images
+        for(var key in results.images){
+            var image     = results.images[key];
+            var datastore = results.datastores[image.DATASTORE_ID];
+
+            // backup images only from type FS datastores
+            if(datastore.TEMPLATE.TM_MAD === 'qcow2'){
+                processImage(image, function(err, backupCmd){
+                    if(err) return console.log(err);
+
+                    // dry run, just print out commands
+                    if(program.dryRun){
+                        return console.log(backupCmd.join("\n"));
+                    }
+
+                    for(var cmdKey in backupCmd){
+                        var cmd = backupCmd[cmdKey];
+
+                        if(program.verbose){
+                            console.log('Run cmd: ' + cmd);
+                        }
+
+                        var result = shell.exec(cmd);
+
+                        if(result.stderr){
+                            process.exit(1);
+                        }
+
+                        if(program.verbose){
+                            console.log(result.stdout);
+                        }
+                    }
+                });
+            }
+        }
+    });
 }
 
 function processImage(image, callback){
@@ -86,6 +109,14 @@ function processImage(image, callback){
 
     // not used images or non persistent
     if(!vmId || image.PERSISTENT === '0') {
+        if(!vmId && (program.verbose || program.dryRun)){
+            console.log('Backup not used image %s named %s', imageId, image.NAME);
+        }
+
+        if(vmId && image.PERSISTENT === '0' && (program.verbose || program.dryRun)){
+            console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, image.VMS.ID.join(','));
+        }
+
         // image without snapshots
         if (!image.SNAPSHOTS) {
 	        var cmd = generateBackupCmd('standard', image, null);
@@ -109,21 +140,11 @@ function processImage(image, callback){
 
         if(data.VM.TEMPLATE.DISK.DISK_ID){
             var vmDiskId = parseInt(data.VM.TEMPLATE.DISK.DISK_ID);
-			
-			if(program.verbose || program.dryRun){
-	            console.log('Create live snapshot of image %s attached to VM %s as disk %s', imageId, vmId, vmDiskId);
-	        }
-	        
-	        if(program.dryRun){
-                var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
-                return callback(null, cmd);
-			}
-			
-            return vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
+
+            return backupUsedPersistentImage(image, imageId, vmId, vmDiskId, function(err, data){
                 if(err) return callback(err);
 
-                var cmd = generateBackupCmd('snapshotLive', image, snapId);
-		        callback(null, cmd);
+                callback(null, data);
             });
         }
 
@@ -133,25 +154,33 @@ function processImage(image, callback){
             var vmImageId = parseInt(disk.IMAGE_ID);
 
             if(imageId === vmImageId) {
-	         	if(program.verbose || program.dryRun){
-	            	console.log('Create live snapshot of image %s attached to VM %s as disk %s', imageId, vmId, vmDiskId);
-	            }
-	            
-                if(program.dryRun){
-                    var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
-                    return callback(null, cmd);
-				}
-				
-                vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
+                backupUsedPersistentImage(image, imageId, vmId, vmDiskId, function(err, data){
                     if(err) return callback(err);
 
-                    var cmd = generateBackupCmd('snapshotLive', image, snapId);
-			        callback(null, cmd);
+                    callback(null, data);
                 });
 
                 break;
             }
         }
+    });
+}
+
+function backupUsedPersistentImage(image, imageId, vmId, vmDiskId, callback){
+    if(program.verbose || program.dryRun){
+        console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s', imageId, image.NAME, vmId, vmDiskId);
+    }
+
+    if(program.dryRun){
+        var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
+        return callback(null, cmd);
+    }
+
+    vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
+        if(err) return callback(err);
+
+        var cmd = generateBackupCmd('snapshotLive', image, snapId);
+        callback(null, cmd);
     });
 }
 
