@@ -104,9 +104,9 @@ function main(){
                                 if(result.code !== 0){
                                     process.exit(1);
                                 }
-
-                                callback(null);
                             }
+
+                            callback(null);
                         });
                     },
                     function(callback){
