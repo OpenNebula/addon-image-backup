@@ -76,7 +76,7 @@ function main(){
                     function(callback) {
                         // Update image template with info about backup is started
                         var imageRsrc = one.getImage(parseInt(image.ID));
-                        imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
+                        imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     },
                     function(callback) {
                         processImage(image, function(err, backupCmd){
