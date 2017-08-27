@@ -128,7 +128,7 @@ function processImage(image, callback){
         var vm = data.VM;
 
         if(vm.TEMPLATE.DISK.DISK_ID){
-            return backupUsedPersistentImage(image, imageId, vm, vmId, vm.TEMPLATE.DISK, function(err, data){
+            return backupUsedPersistentImage(image, imageId, vm, vmId, vm.TEMPLATE.DISK, [], function(err, data){
                 if(err) return callback(err);
 
                 callback(null, data);
