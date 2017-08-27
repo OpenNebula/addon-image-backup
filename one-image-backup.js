@@ -91,7 +91,7 @@ function main(){
 
                         var result = shell.exec(cmd, options);
 
-                        if(result.code !== '0'){
+                        if(result.code !== 0){
                             process.exit(1);
                         }
                     }
