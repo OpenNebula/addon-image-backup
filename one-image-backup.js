@@ -218,6 +218,10 @@ function generateBackupCmd(type, image, vm, disk)
 }
 
 function vmGetHostname(vm){
+    if(!vm){
+        return config.bridgeList[Math.floor(Math.random()*config.bridgeList.length)];
+    }
+
     if(vm.HISTORY_RECORDS.HISTORY.HOSTNAME){
         return vm.HISTORY_RECORDS.HISTORY.HOSTNAME;
     }
