@@ -209,8 +209,8 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
             // backup
-            cmd.push('rsync -avh -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
-            cmd.push('rsync -avh -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
 			
         case 'snapshotLive':
@@ -237,8 +237,8 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
 			// backup
-			cmd.push('rsync -avh -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
-            cmd.push('rsync -avh -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+			cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 
 			// blockcommit tmp snapshot to original one
             cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
