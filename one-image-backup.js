@@ -192,7 +192,7 @@ function generateBackupCmd(type, image, vm, disk)
 
 		    // create tmp snapshot file
 		    cmd.push('ssh oneadmin@' + hostname + ' \'touch ' + tmpDiskSnapshot + '\'');
-		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' test-backup --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata\'');
+		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata\'');
 
 		    // set src and dest paths
 			srcPath = image.SOURCE + '.snap';
