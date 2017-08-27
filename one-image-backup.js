@@ -117,18 +117,7 @@ function processImage(image, callback){
             console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, image.VMS.ID.join(','));
         }
 
-        // image without snapshots
-        if (!image.SNAPSHOTS) {
-	        var cmd = generateBackupCmd('standard', image, null);
-            return callback(null, cmd);
-        }
-
-        // image with snapshots
-        var allSnaps = image.SNAPSHOTS.SNAPSHOT;
-        var lastSnap = allSnaps.pop();
-        var snapId = parseInt(lastSnap.ID) + 1;
-        
-        var cmd = generateBackupCmd('snapshot', image, snapId);
+        var cmd = generateBackupCmd('standard', image);
         return callback(null, cmd);
     }
 
@@ -138,23 +127,22 @@ function processImage(image, callback){
     vm.info(function(err, data){
         if(err) return callback(err);
 
-        if(data.VM.TEMPLATE.DISK.DISK_ID){
-            var vmDiskId = parseInt(data.VM.TEMPLATE.DISK.DISK_ID);
+        var vm = data.VM;
 
-            return backupUsedPersistentImage(image, imageId, vmId, vmDiskId, function(err, data){
+        if(vm.TEMPLATE.DISK.DISK_ID){
+            return backupUsedPersistentImage(image, imageId, vm, vmId, vm.TEMPLATE.DISK, function(err, data){
                 if(err) return callback(err);
 
                 callback(null, data);
             });
         }
 
-        for(key in data.VM.TEMPLATE.DISK){
-            var disk = data.VM.TEMPLATE.DISK[key];
-            var vmDiskId = parseInt(disk.DISK_ID);
+        for(key in vm.TEMPLATE.DISK){
+            var disk = vm.TEMPLATE.DISK[key];
             var vmImageId = parseInt(disk.IMAGE_ID);
 
             if(imageId === vmImageId) {
-                backupUsedPersistentImage(image, imageId, vmId, vmDiskId, function(err, data){
+                backupUsedPersistentImage(image, imageId, vm, vmId, disk, function(err, data){
                     if(err) return callback(err);
 
                     callback(null, data);
@@ -166,78 +154,75 @@ function processImage(image, callback){
     });
 }
 
-function backupUsedPersistentImage(image, imageId, vmId, vmDiskId, callback){
+function backupUsedPersistentImage(image, imageId, vm, vmId, disk, callback){
+    var hostname = vmGetHostname(vm);
+
     if(program.verbose || program.dryRun){
-        console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s', imageId, image.NAME, vmId, vmDiskId);
+        console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s running on %s', imageId, image.NAME, vmId, disk.TARGET, hostname);
     }
 
-    if(program.dryRun){
-        var cmd = generateBackupCmd('snapshotLive', image, randomInt(1, 10));
-        return callback(null, cmd);
-    }
-
-    vm.createDiskSnapshot(vmDiskId, 'weekly-backup', function(err, snapId){
-        if(err) return callback(err);
-
-        var cmd = generateBackupCmd('snapshotLive', image, snapId);
-        callback(null, cmd);
-    });
+    var cmd = generateBackupCmd('snapshotLive', image, vm, disk);
+    callback(null, cmd);
 }
 
-function generateBackupCmd(type, image, snapId)
+function generateBackupCmd(type, image, vm, disk)
 {
 	var srcPath, dstPath, mkDirPath;
 	var cmd = [];
 	
 	var sourcePath = image.SOURCE.split('/');
     var sourceName = sourcePath.pop();
+    var hostname   = vmGetHostname(vm);
 	
 	switch(type){
-		case 'snapshot':
-			srcPath = image.SOURCE + '.snap/' + snapId;
-			dstPath = config.backupDir + image.DATASTORE_ID + '/' + sourceName;
-		
-			// make dir
-			mkDirPath = 'mkdir -p ' + dstPath + '.snap';
-			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
-			
-			// backup
-			cmd.push('qemu-img convert -O qcow2 ' + srcPath + ' ' + dstPath);
-			cmd.push('ln -s ../' + sourceName + ' ' + dstPath + '.snap/0');
-			cmd.push('ln -s 0 ' + dstPath + '.snap/' + snapId);
+		case 'standard':
+            // set src and dest paths
+            srcPath = image.SOURCE + '.snap';
+            dstPath = config.backupDir + image.DATASTORE_ID + '/' + sourceName;
+
+            // make dest dir
+            mkDirPath = 'mkdir -p ' + dstPath + '.snap';
+            if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
+
+            // backup
+            cmd.push('rsync -avh oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            cmd.push('rsync -avh oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
 			
 		case 'snapshotLive':
-			srcPath = image.SOURCE + '.snap/' + snapId;
+		    var tmpDiskSnapshot = '/var/lib/one/datastores/snapshots/one-' + vm.ID + '-weekly-backup';
+
+		    // create tmp snapshot file
+		    cmd.push('ssh oneadmin@' + hostname + ' \'touch ' + tmpDiskSnapshot + '\'');
+		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' test-backup --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata\'');
+
+		    // set src and dest paths
+			srcPath = image.SOURCE + '.snap';
 			dstPath = config.backupDir + image.DATASTORE_ID + '/' + sourceName;
-		
-			// make dir
+
+			// make dest dir
 			mkDirPath = 'mkdir -p ' + dstPath + '.snap';
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
-			
+
 			// backup
-			cmd.push('qemu-img convert -O qcow2 ' + srcPath + ' ' + dstPath);
-			cmd.push('ln -s ../' + sourceName + ' ' + dstPath + '.snap/0');
-			cmd.push('ln -s 0 ' + dstPath + '.snap/' + (snapId + 1));
-			break;
-			
-		case 'standard':
-			srcPath = image.SOURCE;
-			dstPath = config.backupDir + image.DATASTORE_ID + '/' + sourceName;
-		
-			// make dir
-			mkDirPath = 'mkdir -p ' + config.backupDir + image.DATASTORE_ID;
-			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
-			
-			// backup
-			cmd.push('cp ' + srcPath + ' ' + dstPath);
+			cmd.push('rsync -avh oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            cmd.push('rsync -avh oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+
+			// blockcommit tmp snapshot to original one
+            cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
+
+			// clear tmp snapshot
+            cmd.push('ssh oneadmin@' + hostname + ' \'rm -f ' + tmpDiskSnapshot + '\'');
 			break;
 	}
 	
 	return cmd;
 }
 
-function randomInt(low, high)
-{
-    return Math.floor(Math.random() * (high - low) + low);
+function vmGetHostname(vm){
+    if(vm.HISTORY_RECORDS.HISTORY.HOSTNAME){
+        return vm.HISTORY_RECORDS.HISTORY.HOSTNAME;
+    }
+
+    return vm.HISTORY_RECORDS.HISTORY.pop().HOSTNAME;
 }
