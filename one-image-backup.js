@@ -6,13 +6,13 @@ const opennebula = require('opennebula');
 const fs = require('fs');
 const async = require('async');
 const shell = require('shelljs');
+const dateTime = require('node-datetime');
 const config = require('./config');
 var one;
 
 // define program
 program
 	.version('1.0.0')
-    .option('-c --continue <n>', 'continue backup process after specified image id including, usefull if you want rerun script after crash')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
 	.option('-v --verbose', 'enable verbose mode')
@@ -66,45 +66,60 @@ function main(){
             }, -2);
         }
     }, function(err, results) {
-        var continueIteration = false;
-
         // iterate over images
-        for(var key in results.images){
-            var image     = results.images[key];
+        async.eachSeries(results.images, function(image, callback){
             var datastore = results.datastores[image.DATASTORE_ID];
 
-            if(image.ID === program.continue) {
-                continueIteration = true;
-            }
-
             // backup images only from type FS datastores
-            if(datastore.TEMPLATE.TM_MAD === 'qcow2' && continueIteration) {
-                processImage(image, function(err, backupCmd){
-                    if(err) return console.log(err);
+            if(datastore.TEMPLATE.TM_MAD === 'qcow2') {
+                return async.series([
+                    function(callback) {
+                        // Update image template with info about backup is started
+                        var imageRsrc = one.getImage(parseInt(image.ID));
+                        imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
+                    },
+                    function(callback) {
+                        processImage(image, function(err, backupCmd){
+                            if(err) {
+                                return callback(err);
+                            }
 
-                    // dry run, just print out commands
-                    if(program.dryRun){
-                        return console.log(backupCmd.join("\n"));
+                            // dry run, just print out commands
+                            if(program.dryRun){
+                                console.log(backupCmd.join("\n"));
+                                return callback(null);
+                            }
+
+                            for(var cmdKey in backupCmd){
+                                var cmd = backupCmd[cmdKey];
+                                var options = {silent : true};
+
+                                if(program.verbose){
+                                    console.log('Run cmd: ' + cmd);
+                                    var options = {silent : false};
+                                }
+
+                                var result = shell.exec(cmd, options);
+
+                                if(result.code !== 0){
+                                    process.exit(1);
+                                }
+
+                                callback(null);
+                            }
+                        });
+                    },
+                    function(callback){
+                        // Update image template with info about backup is finished
+                        var imageRsrc = one.getImage(parseInt(image.ID));
+                        imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     }
-
-                    for(var cmdKey in backupCmd){
-                        var cmd = backupCmd[cmdKey];
-                        var options = {silent : true};
-
-                        if(program.verbose){
-                            console.log('Run cmd: ' + cmd);
-                            var options = {silent : false};
-                        }
-
-                        var result = shell.exec(cmd, options);
-
-                        if(result.code !== 0){
-                            process.exit(1);
-                        }
-                    }
-                });
+                ], callback);
             }
-        }
+
+            // skip
+            callback(null);
+        });
     });
 }
 

@@ -17,6 +17,7 @@
   "dependencies": {
     "async": "^2.5.0",
     "commander": "^2.9.0",
+    "node-datetime": "^2.0.0",
     "opennebula": "^1.0.8",
     "shelljs": "^0.7.7"
   }
