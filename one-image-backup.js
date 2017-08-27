@@ -226,5 +226,7 @@ function vmGetHostname(vm){
         return vm.HISTORY_RECORDS.HISTORY.HOSTNAME;
     }
 
-    return vm.HISTORY_RECORDS.HISTORY.pop().HOSTNAME;
+    var history = JSON.parse(JSON.stringify(vm.HISTORY_RECORDS.HISTORY));
+
+    return history.pop().HOSTNAME;
 }
