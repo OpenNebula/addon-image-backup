@@ -135,35 +135,39 @@ function processImage(image, callback){
             });
         }
 
+        var excludedDisks = [];
+
         for(key in vm.TEMPLATE.DISK){
             var disk = vm.TEMPLATE.DISK[key];
             var vmImageId = parseInt(disk.IMAGE_ID);
 
             if(imageId === vmImageId) {
-                backupUsedPersistentImage(image, imageId, vm, vmId, disk, function(err, data){
-                    if(err) return callback(err);
-
-                    callback(null, data);
-                });
-
-                break;
+                vmDisk = disk;
+            } else {
+                excludedDisks.push(disk.TARGET);
             }
         }
+
+        backupUsedPersistentImage(image, imageId, vm, vmId, vmDisk, excludedDisks, function(err, data){
+            if(err) return callback(err);
+
+            callback(null, data);
+        });
     });
 }
 
-function backupUsedPersistentImage(image, imageId, vm, vmId, disk, callback){
+function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks, callback){
     var hostname = vmGetHostname(vm);
 
     if(program.verbose || program.dryRun){
         console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s running on %s', imageId, image.NAME, vmId, disk.TARGET, hostname);
     }
 
-    var cmd = generateBackupCmd('snapshotLive', image, vm, disk);
+    var cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
     callback(null, cmd);
 }
 
-function generateBackupCmd(type, image, vm, disk)
+function generateBackupCmd(type, image, vm, disk, excludedDisks)
 {
 	var srcPath, dstPath, mkDirPath;
 	var cmd = [];
@@ -187,12 +191,20 @@ function generateBackupCmd(type, image, vm, disk)
             cmd.push('rsync -avh -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
 			
-		case 'snapshotLive':
+        case 'snapshotLive':
 		    var tmpDiskSnapshot = '/var/lib/one/datastores/snapshots/one-' + vm.ID + '-weekly-backup';
+
+		    // excluded disks
+            var excludedDiskSpec = '';
+            for(var key in excludedDisks){
+                var excludedDisk = excludedDisks[key];
+
+                excludedDiskSpec += ' --diskspec ' + excludedDisk + ',snapshot=no';
+            }
 
 		    // create tmp snapshot file
 		    cmd.push('ssh oneadmin@' + hostname + ' \'touch ' + tmpDiskSnapshot + '\'');
-		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata\'');
+		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup' + excludedDiskSpec + ' --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata\'');
 
 		    // set src and dest paths
 			srcPath = image.SOURCE + '.snap';
