@@ -12,6 +12,7 @@ var one;
 // define program
 program
 	.version('1.0.0')
+    .option('-c --continue <n>', 'continue backup process after specified image id including, usefull if you want rerun script after crash')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
 	.option('-v --verbose', 'enable verbose mode')
@@ -65,13 +66,19 @@ function main(){
             }, -2);
         }
     }, function(err, results) {
+        var continueIteration = false;
+
         // iterate over images
         for(var key in results.images){
             var image     = results.images[key];
             var datastore = results.datastores[image.DATASTORE_ID];
 
+            if(image.ID === program.continue) {
+                continueIteration = true;
+            }
+
             // backup images only from type FS datastores
-            if(datastore.TEMPLATE.TM_MAD === 'qcow2'){
+            if(datastore.TEMPLATE.TM_MAD === 'qcow2' && continueIteration) {
                 processImage(image, function(err, backupCmd){
                     if(err) return console.log(err);
 
