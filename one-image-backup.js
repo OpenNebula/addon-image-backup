@@ -230,7 +230,7 @@ function generateBackupCmd(type, image, snapId)
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 			
 			// backup
-			cmd.push('qemu-img convert -O qcow2 ' + srcPath + ' ' + dstPath);
+			cmd.push('cp ' + srcPath + ' ' + dstPath);
 			break;
 	}
 	
