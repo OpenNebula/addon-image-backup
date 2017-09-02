@@ -134,7 +134,13 @@ function processImage(image, callback){
         }
 
         if(vmId && image.PERSISTENT === '0' && (program.verbose || program.dryRun)){
-            console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, image.VMS.ID.join(','));
+            if(image.VMS.ID instanceof Array) {
+                var vms = image.VMS.ID.join(',');
+            } else {
+                var vms = image.VMS.ID;
+            }
+
+            console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, vms);
         }
 
         var cmd = generateBackupCmd('standard', image);
