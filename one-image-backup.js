@@ -13,6 +13,7 @@ var one;
 // define program
 program
 	.version('1.0.0')
+    .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
 	.option('-v --verbose', 'enable verbose mode')
@@ -59,6 +60,15 @@ function main(){
             }, -2);
         },
         images: function(callback) {
+            if( ! isNaN(program.image)) {
+                var i = one.getImage(program.image);
+                return i.info(function(err, image) {
+                    if (err) return callback(err);
+
+                    callback(null, [image.IMAGE]);
+                });
+            }
+
             one.getImages(function(err, images) {
                 if (err) return callback(err);
 
