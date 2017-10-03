@@ -224,8 +224,11 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             mkDirPath = 'mkdir -p ' + dstPath + '.snap';
             if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
-            // backup
+            // backup image
             cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            // create source snap dir if not exists
+            cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
+            // backup snap dir
             cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
 			
