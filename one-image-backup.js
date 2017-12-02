@@ -233,7 +233,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 			break;
 			
         case 'snapshotLive':
-		    var tmpDiskSnapshot = '/var/ds/datastore2/snapshots/one-' + vm.ID + '-weekly-backup';
+		    var tmpDiskSnapshot = config.backupTmpDir + 'one-' + vm.ID + '-weekly-backup';
 
 		    // excluded disks
             var excludedDiskSpec = '';
