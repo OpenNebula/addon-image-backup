@@ -14,6 +14,7 @@ var one;
 program
 	.version('1.0.0')
     .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
+    .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
 	.option('-v --verbose', 'enable verbose mode')
@@ -129,6 +130,53 @@ function main(){
 
             // skip
             callback(null);
+        }, function (err) {
+            if(err) {
+                process.exit(1);
+            }
+
+            // backup deployments files from system DS
+            if(program.deployments) {
+                var options = {silent : true};
+
+                if(program.verbose) {
+                    console.log('Backup deployments - system datastores without non-persistent disks...');
+                }
+
+                for(var key in results.datastores) {
+                    var datastore = results.datastores[key];
+
+                    // filter just system datastores with TM_MAD == qcow2
+                    if(datastore.TYPE !== '1' || datastore.TEMPLATE.TM_MAD !== 'qcow2') {
+                        continue;
+                    }
+
+                    // get random host form bridge list
+                    var hostname = config.bridgeList[Math.floor(Math.random()*config.bridgeList.length)];
+
+                    // create backup command
+                    var cmd = 'rsync -avhP --delete --exclude "disk.0.snap/0" oneadmin@' + hostname + ':' + datastore.BASE_PATH + '/ ' + config.backupDir + '/' + datastore.ID + '/';
+
+                    // dry run, just print out command
+                    if(program.dryRun){
+                        console.log(cmd);
+                        continue;
+                    }
+
+                    // setup verbosity and print command
+                    if(program.verbose) {
+                        console.log('Run cmd: ' + cmd);
+                        var options = {silent: false};
+                    }
+
+                    // run command
+                    var result = shell.exec(cmd, options);
+
+                    if(result.code !== 0){
+                        process.exit(1);
+                    }
+                }
+            }
         });
     });
 }
