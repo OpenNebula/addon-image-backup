@@ -33,7 +33,7 @@ This add-on is compatible with OpenNebula 5.0+, NodeJS 5.10.1+ and NPM 3.8.3+
 
 ### Backup server
 
-* NodeJS and NPM installed
+* NodeJS, NPM and Rsync installed
 * Password-less SSH access from the backup server to the `node` instances using `oneadmin` user.
 
 ## Installation
