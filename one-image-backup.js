@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.0.0')
+	.version('1.0.1')
     .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
     .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
