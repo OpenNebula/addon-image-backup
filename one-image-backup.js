@@ -309,15 +309,17 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
                 excludedDiskSpec += ' --diskspec ' + excludedDisk + ',snapshot=no';
             }
 
-            // freeze fs option
-            var freezeFsOption = ' --quiesce';
-            if(vm.TEMPLATE.FEATURES === undefined || vm.TEMPLATE.FEATURES.GUEST_AGENT === undefined || vm.TEMPLATE.FEATURES.GUEST_AGENT !== 'yes'){
-                freezeFsOption = '';
-            }
-
 		    // create tmp snapshot file
 		    cmd.push('ssh oneadmin@' + hostname + ' \'touch ' + tmpDiskSnapshot + '\'');
-		    cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup' + excludedDiskSpec + ' --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic' + freezeFsOption + ' --no-metadata\'');
+            var liveSnapshotCmd = 'ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup' + excludedDiskSpec + ' --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata';
+
+            // try to freeze fs if guest agent enabled
+            if(vm.TEMPLATE.FEATURES !== undefined && vm.TEMPLATE.FEATURES.GUEST_AGENT !== undefined && vm.TEMPLATE.FEATURES.GUEST_AGENT === 'yes') {
+                cmd.push(liveSnapshotCmd + ' --quiesce\' || ' + liveSnapshotCmd + '\'');
+
+            } else {
+                cmd.push(liveSnapshotCmd + '\'');
+            }
 
 		    // set src and dest paths
 			srcPath = image.SOURCE + '.snap';
