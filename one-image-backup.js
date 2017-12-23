@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.0.1')
+	.version('1.0.2')
     .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
     .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
@@ -261,13 +261,30 @@ function processImage(image, callback){
 }
 
 function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks, callback){
+    var active   = true;
     var hostname = vmGetHostname(vm);
 
-    if(program.verbose || program.dryRun){
-        console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s running on %s', imageId, image.NAME, vmId, disk.TARGET, hostname);
+    // if VM is not in state ACTIVE
+    if(vm.STATE !== '3'){
+        active = false;
     }
 
-    var cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
+    // console logs
+    if(program.verbose || program.dryRun){
+        if(active) {
+            console.log('Create live snapshot of image %s named %s attached to VM %s as disk %s running on %s', imageId, image.NAME, vmId, disk.TARGET, hostname);
+        } else {
+            console.log('Backup used image %s named %s attached to VM %s as disk %s, but not in active state (STATE: %s, LCM_STATE: %s) on %s', imageId, image.NAME, vmId, disk.TARGET, vm.STATE, vm.LCM_STATE, hostname);
+        }
+    }
+
+    // backup commands generation
+    if(active) {
+        var cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
+    } else {
+        var cmd = generateBackupCmd('standard', image);
+    }
+
     callback(null, cmd);
 }
 
