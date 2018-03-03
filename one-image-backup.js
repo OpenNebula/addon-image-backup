@@ -347,11 +347,11 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
 			// backup image
-			cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+			cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T -c arcfour128 -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
 			// create source snap dir if not exists
 			cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
 			// backup snap dir
-            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T -c arcfour128 -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 
 			// blockcommit tmp snapshot to original one
             cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
