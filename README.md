@@ -30,6 +30,12 @@ This add-on is compatible with OpenNebula 5.0+, NodeJS 5.10.1+ and NPM 3.8.3+
 ### OpenNebula Node(s)
 
 * The node(s) must have QEMU 2.1+, Libvirt 1.2.9+ and Rsync available.
+* If you want use the weakest but fastest SSH encryption them you must specify `Ciphers arcfour128` in `/etc/ssh/sshd_config`
+
+Example sshd_config:
+```
+Ciphers arcfour128,chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
+```
 
 ### Backup server
 
@@ -109,6 +115,7 @@ Basicly you just need copy `~/.ssh` and `/etc/hosts` from frontend node.
 
     -V, --version          output the version number
     -i --image <image_id>  image id if you need backup concrete image
+    -k --insecure          use the weakest but fastest SSH encryption
     -D --deployments       backup also deployments files from system datastores
     -d --dry-run           dry run - not execute any commands, instead will be printed out
     -s --skip-question     skip question about executiong backup
