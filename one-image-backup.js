@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.0.2')
+	.version('1.1.0')
     .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-D --deployments', 'backup also deployments files from system datastores')
