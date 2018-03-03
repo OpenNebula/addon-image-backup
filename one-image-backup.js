@@ -32,6 +32,7 @@ var one;
 program
 	.version('1.0.2')
     .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
+    .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
@@ -296,6 +297,9 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 	var sourcePath = image.SOURCE.split('/');
     var sourceName = sourcePath.pop();
     var hostname   = vmGetHostname(vm);
+    var sshCipher = '';
+	
+	if(program.insecure) sshCipher = ' -c arcfour128';
 	
 	switch(type){
 		case 'standard':
@@ -308,11 +312,11 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
             // backup image
-            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
             // create source snap dir if not exists
             cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
             // backup snap dir
-            cmd.push('rsync -avhW -P oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
 			
         case 'snapshotLive':
@@ -347,11 +351,11 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
 			// backup image
-			cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T -c arcfour128 -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+			cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
 			// create source snap dir if not exists
 			cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
 			// backup snap dir
-            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T -c arcfour128 -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
+            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 
 			// blockcommit tmp snapshot to original one
             cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
