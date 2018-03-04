@@ -22,5 +22,6 @@ module.exports = {
     token: 'someStrongPass',
     backupDir: '/path/to/backup/dir/',
     backupTmpDir: '/path/to/backup/tmp/dir/',
+    backupServerIp: '192.168.2.8',
     bridgeList: ['node1', 'node2', 'node3']
 }
