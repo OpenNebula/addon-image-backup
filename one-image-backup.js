@@ -31,7 +31,7 @@ var one;
 // define program
 program
 	.version('1.1.0')
-    .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
+    .option('-i --image <image_id>', 'image id if you need backup concrete image')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -82,8 +82,8 @@ function main(){
             }, -2);
         },
         images: function(callback) {
-            if( ! isNaN(program.image)) {
-                var i = one.getImage(program.image);
+            if( ! isNaN(program.image) && ! /,/i.test(program.image)) {
+                var i = one.getImage(parseInt(program.image));
                 return i.info(function(err, image) {
                     if (err) return callback(err);
 
@@ -91,8 +91,21 @@ function main(){
                 });
             }
 
-            one.getImages(function(err, images) {
+            one.getImages(function(err, allImages) {
                 if (err) return callback(err);
+                var images = [];
+
+                if(/,/i.test(program.image)) {
+                    var wantedImages = program.image.split(',');
+                    for(key in allImages) {
+                        var image = allImages[key];
+                        if(wantedImages.indexOf(image.ID) != -1) {
+                            images.push(image);
+                        }
+                    }
+                } else {
+                    images = allImages;
+                }
 
                 callback(null, images);
             }, -2);
