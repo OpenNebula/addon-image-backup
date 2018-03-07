@@ -17,11 +17,26 @@
 */
 
 module.exports = {
+    // XML-RPC API Configuration
     address: 'http://opennebula:2633/RPC2',
     user: 'oneadmin',
     token: 'someStrongPass',
+    
+    // Path to where to save backups on backup server
     backupDir: '/path/to/backup/dir/',
+    
+    // Path where external tmp snapshot will create on compute node
+    // Have to be owned by oneadmin user
     backupTmpDir: '/path/to/backup/tmp/dir/',
+    
+    // IP address of backup server from which we run this script
+    // Used only for netcat function
     backupServerIp: '192.168.2.8',
+    
+    // List of compute nodes in cluster.
+    // Used for downloading persistent images not attached to any vm,
+    // non-persistent images and deployments files
+    // This have to be valid DNS names, which resolves to IPs
+    // You should copy /etc/hosts from Front-end node
     bridgeList: ['node1', 'node2', 'node3']
 }

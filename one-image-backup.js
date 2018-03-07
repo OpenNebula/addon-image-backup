@@ -30,10 +30,10 @@ var one;
 
 // define program
 program
-	.version('1.1.0')
+	.version('1.2.0')
     .option('-i --image <image_id>', 'image id if you need backup concrete image')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
-    .option('-n --netcat', 'use the netcat instead of rsync')
+    .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
     .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')

@@ -91,6 +91,10 @@ module.exports = {
     // Have to be owned by oneadmin user
     backupTmpDir: '/path/to/backup/tmp/dir/',
     
+    // IP address of backup server from which we run this script
+    // Used only for netcat function
+    backupServerIp: '192.168.2.8',
+    
     // List of compute nodes in cluster.
     // Used for downloading persistent images not attached to any vm,
     // non-persistent images and deployments files
@@ -116,6 +120,8 @@ Basicly you just need copy `~/.ssh` and `/etc/hosts` from frontend node.
     -V, --version          output the version number
     -i --image <image_id>  image id if you need backup concrete image
     -k --insecure          use the weakest but fastest SSH encryption
+    -n --netcat            use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)
+    -c --check             check img using qemu-img check cmd after transfer
     -D --deployments       backup also deployments files from system datastores
     -d --dry-run           dry run - not execute any commands, instead will be printed out
     -s --skip-question     skip question about executiong backup
@@ -132,9 +138,12 @@ Basicly you just need copy `~/.ssh` and `/etc/hosts` from frontend node.
 ### Prepared bash script
 
 There is also prepared bash script `backup.sh` for use in cron.
-Script run `one-image-backup` with `D v s` options.
+Script run `one-image-backup` with `k n c D v s` options.
 
 ```
+k - fast rsync using weakest SSH encryption
+n - use netcat instead of rsync for transfer main image file (*.snap dirs still use rsync)
+c - check img using qemu-img check
 D - backup deployments files
 v - verbose - so you get report by email
 s - skip confirmation question
