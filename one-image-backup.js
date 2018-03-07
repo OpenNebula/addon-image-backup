@@ -30,9 +30,11 @@ var one;
 
 // define program
 program
-	.version('1.1.0')
-    .option('-i --image <image_id>', 'image id if you need backup concrete image', parseInt)
+	.version('1.2.0')
+    .option('-i --image <image_id>', 'image id if you need backup concrete image')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
+    .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
+    .option('-c --check', 'check img using qemu-img check cmd after transfer')
     .option('-D --deployments', 'backup also deployments files from system datastores')
 	.option('-d --dry-run', 'dry run - not execute any commands, instead will be printed out')
 	.option('-s --skip-question', 'skip question about executiong backup')
@@ -80,8 +82,8 @@ function main(){
             }, -2);
         },
         images: function(callback) {
-            if( ! isNaN(program.image)) {
-                var i = one.getImage(program.image);
+            if( ! isNaN(program.image) && ! /,/i.test(program.image)) {
+                var i = one.getImage(parseInt(program.image));
                 return i.info(function(err, image) {
                     if (err) return callback(err);
 
@@ -89,8 +91,21 @@ function main(){
                 });
             }
 
-            one.getImages(function(err, images) {
+            one.getImages(function(err, allImages) {
                 if (err) return callback(err);
+                var images = [];
+
+                if(/,/i.test(program.image)) {
+                    var wantedImages = program.image.split(',');
+                    for(key in allImages) {
+                        var image = allImages[key];
+                        if(wantedImages.indexOf(image.ID) != -1) {
+                            images.push(image);
+                        }
+                    }
+                } else {
+                    images = allImages;
+                }
 
                 callback(null, images);
             }, -2);
@@ -312,7 +327,17 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
             // backup image
-            cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            if(program.netcat) {
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + ' & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+            } else {
+                cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+            }
+            
+            // check image if driver is qcow2
+			if(image.TEMPLATE.DRIVER === 'qcow2' && program.check) {
+			    cmd.push('qemu-img check ' + dstPath);
+			}
+            
             // create source snap dir if not exists
             cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
             // backup snap dir
@@ -351,7 +376,17 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 			if(!fs.existsSync(mkDirPath)) cmd.push(mkDirPath);
 
 			// backup image
-			cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+			if(program.netcat) {
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + ' & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+            } else {
+			    cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+			}
+			
+			// check image if driver is qcow2
+			if(image.TEMPLATE.DRIVER === 'qcow2' && program.check) {
+			    cmd.push('qemu-img check ' + dstPath);
+			}
+			
 			// create source snap dir if not exists
 			cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
 			// backup snap dir
