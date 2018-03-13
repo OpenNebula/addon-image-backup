@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.2.0')
+	.version('1.2.1')
     .option('-i --image <image_id>', 'image id if you need backup concrete image')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
@@ -328,18 +328,22 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 
             // backup image
             if(program.netcat) {
-                cmd.push('nc -l -p 5000 | dd of=' + dstPath + ' & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
             } else {
-                cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+                cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath + '.tmp');
             }
             
             // check image if driver is qcow2
 			if(image.TEMPLATE.DRIVER === 'qcow2' && program.check) {
 			    cmd.push('qemu-img check ' + dstPath);
 			}
+			
+			// replace old image by new one
+            cmd.push('mv -f ' + dstPath + '.tmp ' + dstPath);
             
             // create source snap dir if not exists
             cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
+            
             // backup snap dir
             cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 			break;
@@ -377,15 +381,18 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 
 			// backup image
 			if(program.netcat) {
-                cmd.push('nc -l -p 5000 | dd of=' + dstPath + ' & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
             } else {
-			    cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath);
+			    cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath + '.tmp');
 			}
 			
 			// check image if driver is qcow2
 			if(image.TEMPLATE.DRIVER === 'qcow2' && program.check) {
-			    cmd.push('qemu-img check ' + dstPath);
+			    cmd.push('qemu-img check ' + dstPath + '.tmp');
 			}
+	
+            // replace old image by new one
+            cmd.push('mv -f ' + dstPath + '.tmp ' + dstPath);
 			
 			// create source snap dir if not exists
 			cmd.push('ssh oneadmin@' + hostname + ' \'[ -d ' + srcPath + ' ] || mkdir ' + srcPath + '\'');
