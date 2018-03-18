@@ -37,10 +37,13 @@ Example sshd_config:
 Ciphers arcfour128,chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com
 ```
 
+* To use `netcat` option, corresponding package have to be installed 
+
 ### Backup server
 
 * NodeJS, NPM and Rsync installed
 * Password-less SSH access from the backup server to the `node` instances using `oneadmin` user.
+* To use `netcat` option, corresponding package have to be installed
 
 ## Installation
 
