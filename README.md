@@ -13,6 +13,10 @@ It backups:
     - at the end external snapshot is blockcommited back to original image and deleted
 - system datastores with deployments files - without VM images, which are non-persistent ones
 
+## How it works
+
+![Flow diagram](https://raw.githubusercontent.com/OpenNebula/addon-image-backup/develop/images/how-it-works.png)
+
 ## Authors
 
 * Leader: Kristián Feldsam (feldsam@gmail.com)
@@ -121,7 +125,7 @@ Basicly you just need copy `~/.ssh` and `/etc/hosts` from frontend node.
   Options:
 
     -V, --version          output the version number
-    -i --image <image_id>  image id if you need backup concrete image
+    -i --image <image_id>  image id or comma separated list of image ids to backup. Omit for backup all images
     -k --insecure          use the weakest but fastest SSH encryption
     -n --netcat            use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)
     -c --check             check img using qemu-img check cmd after transfer
