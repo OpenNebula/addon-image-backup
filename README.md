@@ -126,6 +126,7 @@ Basicly you just need copy `~/.ssh` and `/etc/hosts` from frontend node.
 
     -V, --version          output the version number
     -i --image <image_id>  image id or comma separated list of image ids to backup. Omit for backup all images
+    -S --start-image <image_id>  image id to start from backup. Backups all following images including defined one
     -k --insecure          use the weakest but fastest SSH encryption
     -n --netcat            use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)
     -c --check             check img using qemu-img check cmd after transfer
