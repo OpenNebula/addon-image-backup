@@ -30,8 +30,9 @@ var one;
 
 // define program
 program
-	.version('1.2.1')
-    .option('-i --image <image_id>', 'image id if you need backup concrete image')
+	.version('1.3.1')
+    .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
+    .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -103,6 +104,18 @@ function main(){
                             images.push(image);
                         }
                     }
+                } else if(program.startImage) {
+                    var found = false;
+                    for(key in allImages) {
+                        var image = allImages[key];
+                        if(!found && image.ID == program.startImage) {
+                            found = true;
+                        }
+
+                        if(found) {
+                            images.push(image);
+                        }
+                    }
                 } else {
                     images = allImages;
                 }
@@ -120,6 +133,10 @@ function main(){
                 return async.series([
                     function(callback) {
                         // Update image template with info about backup is started
+                        if(program.dryRun) {
+                            return callback(null);
+                        }
+
                         var imageRsrc = one.getImage(parseInt(image.ID));
                         imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     },
@@ -156,6 +173,10 @@ function main(){
                     },
                     function(callback){
                         // Update image template with info about backup is finished
+                        if(program.dryRun) {
+                            return callback(null);
+                        }
+
                         var imageRsrc = one.getImage(parseInt(image.ID));
                         imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     }
