@@ -149,7 +149,6 @@ Script run `one-image-backup` with `k n c D v s` options.
 
 ```
 k - fast rsync using weakest SSH encryption
-n - use netcat instead of rsync for transfer main image file (*.snap dirs still use rsync)
 c - check img using qemu-img check
 D - backup deployments files
 v - verbose - so you get report by email
