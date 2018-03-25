@@ -32,6 +32,7 @@ var one;
 program
 	.version('1.2.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
+    .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -100,6 +101,18 @@ function main(){
                     for(key in allImages) {
                         var image = allImages[key];
                         if(wantedImages.indexOf(image.ID) != -1) {
+                            images.push(image);
+                        }
+                    }
+                } else if(program.startImage) {
+                    var found = false;
+                    for(key in allImages) {
+                        var image = allImages[key];
+                        if(!found && image.ID == program.startImage) {
+                            found = true;
+                        }
+
+                        if(found) {
                             images.push(image);
                         }
                     }
