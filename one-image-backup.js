@@ -120,6 +120,10 @@ function main(){
                 return async.series([
                     function(callback) {
                         // Update image template with info about backup is started
+                        if(program.dryRun) {
+                            return callback(null);
+                        }
+
                         var imageRsrc = one.getImage(parseInt(image.ID));
                         imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     },
@@ -156,6 +160,10 @@ function main(){
                     },
                     function(callback){
                         // Update image template with info about backup is finished
+                        if(program.dryRun) {
+                            return callback(null);
+                        }
+
                         var imageRsrc = one.getImage(parseInt(image.ID));
                         imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                     }
