@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.3.1')
+	.version('1.4.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
