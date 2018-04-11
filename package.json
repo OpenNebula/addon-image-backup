@@ -1,6 +1,6 @@
 {
   "name": "one-image-backup",
-  "version": "1.3.1",
+  "version": "1.4.1",
   "description": "Backup OpenNebula Persistant Images. If image is used, backup using snapshot.",
   "main": "one-image-backup.js",
   "scripts": {
