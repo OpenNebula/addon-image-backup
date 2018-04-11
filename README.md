@@ -107,7 +107,10 @@ module.exports = {
     // non-persistent images and deployments files
     // This have to be valid DNS names, which resolves to IPs
     // You should copy /etc/hosts from Front-end node
-    bridgeList: ['node1', 'node2', 'node3']
+    bridgeList: ['node1', 'node2', 'node3'],
+                                           
+    // Libvirt hypervisor connection URI
+    libvirtUri: 'qemu:///system'
 }
 ```
 

@@ -382,7 +382,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 
 		    // create tmp snapshot file
 		    cmd.push('ssh oneadmin@' + hostname + ' \'touch ' + tmpDiskSnapshot + '\'');
-            var liveSnapshotCmd = 'ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system snapshot-create-as --domain one-' + vm.ID + ' weekly-backup' + excludedDiskSpec + ' --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata';
+            var liveSnapshotCmd = 'ssh oneadmin@' + hostname + ' \'virsh -c ' + config.libvirtUri + ' snapshot-create-as --domain one-' + vm.ID + ' weekly-backup' + excludedDiskSpec + ' --diskspec ' + disk.TARGET + ',file=' + tmpDiskSnapshot + ' --disk-only --atomic --no-metadata';
 
             // try to freeze fs if guest agent enabled
             if(vm.TEMPLATE.FEATURES !== undefined && vm.TEMPLATE.FEATURES.GUEST_AGENT !== undefined && vm.TEMPLATE.FEATURES.GUEST_AGENT === 'yes') {
@@ -421,7 +421,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             cmd.push('rsync -aHAXxWv --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + srcPath + '/ ' + dstPath + '.snap/');
 
 			// blockcommit tmp snapshot to original one
-            cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c qemu+tcp://localhost/system blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
+            cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c ' + config.libvirtUri + ' blockcommit one-' + vm.ID + ' ' + disk.TARGET + ' --active --pivot --shallow --verbose\'');
 
 			// clear tmp snapshot
             cmd.push('ssh oneadmin@' + hostname + ' \'rm -f ' + tmpDiskSnapshot + '\'');
