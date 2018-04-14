@@ -74,7 +74,7 @@ function main(){
 
                 var result = {};
 
-                for(var key in datastores){
+                for(var key in datastores) if (datastores.hasOwnProperty(key)) {
                     var ds = datastores[key];
                     result[ds.ID] = ds;
                 }
@@ -152,13 +152,14 @@ function main(){
                                 return callback(null);
                             }
 
-                            for(var cmdKey in backupCmd){
+                            var options;
+                            for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
                                 var cmd = backupCmd[cmdKey];
-                                var options = {silent : true};
+                                options = {silent : true};
 
                                 if(program.verbose){
                                     console.log('Run cmd: ' + cmd);
-                                    var options = {silent : false};
+                                    options = {silent : false};
                                 }
 
                                 var result = shell.exec(cmd, options);
@@ -191,14 +192,15 @@ function main(){
             }
 
             // backup deployments files from system DS
+            var options;
             if(program.deployments) {
-                var options = {silent : true};
+                options = {silent : true};
 
                 if(program.verbose) {
                     console.log('Backup deployments - system datastores without non-persistent disks...');
                 }
 
-                for(var key in results.datastores) {
+                for(var key in results.datastores) if (results.datastores.hasOwnProperty(key)) {
                     var datastore = results.datastores[key];
 
                     // filter just system datastores with TM_MAD == qcow2
@@ -221,7 +223,7 @@ function main(){
                     // setup verbosity and print command
                     if(program.verbose) {
                         console.log('Run cmd: ' + cmd);
-                        var options = {silent: false};
+                        options = {silent: false};
                     }
 
                     // run command
@@ -239,6 +241,7 @@ function main(){
 function processImage(image, callback){
     var imageId = parseInt(image.ID);
     var vmId = parseInt(image.VMS.ID);
+    var vms;
 
     // not used images or non persistent
     if(!vmId || image.PERSISTENT === '0') {
@@ -248,9 +251,9 @@ function processImage(image, callback){
 
         if(vmId && image.PERSISTENT === '0' && (program.verbose || program.dryRun)){
             if(image.VMS.ID instanceof Array) {
-                var vms = image.VMS.ID.join(',');
+                vms = image.VMS.ID.join(',');
             } else {
-                var vms = image.VMS.ID;
+                vms = image.VMS.ID;
             }
 
             console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, vms);
@@ -278,7 +281,7 @@ function processImage(image, callback){
 
         var excludedDisks = [];
 
-        for(key in vm.TEMPLATE.DISK){
+        for(key in vm.TEMPLATE.DISK) if (vm.TEMPLATE.DISK.hasOwnProperty(key)) {
             var disk = vm.TEMPLATE.DISK[key];
             var vmImageId = parseInt(disk.IMAGE_ID);
 
@@ -300,6 +303,7 @@ function processImage(image, callback){
 function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks, callback){
     var active   = true;
     var hostname = vmGetHostname(vm);
+    var cmd;
 
     // if VM is not in state ACTIVE
     if(vm.STATE !== '3'){
@@ -317,9 +321,9 @@ function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks
 
     // backup commands generation
     if(active) {
-        var cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
+        cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
     } else {
-        var cmd = generateBackupCmd('standard', image);
+        cmd = generateBackupCmd('standard', image);
     }
 
     callback(null, cmd);
@@ -374,7 +378,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 
 		    // excluded disks
             var excludedDiskSpec = '';
-            for(var key in excludedDisks){
+            for(var key in excludedDisks) if (excludedDisks.hasOwnProperty(key)) {
                 var excludedDisk = excludedDisks[key];
 
                 excludedDiskSpec += ' --diskspec ' + excludedDisk + ',snapshot=no';
