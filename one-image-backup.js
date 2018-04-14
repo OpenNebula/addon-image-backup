@@ -33,6 +33,7 @@ program
 	.version('1.4.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
+    .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -94,31 +95,8 @@ function main(){
 
             one.getImages(function(err, allImages) {
                 if (err) return callback(err);
-                var images = [];
 
-                if(/,/i.test(program.image)) {
-                    var wantedImages = program.image.split(',');
-                    for(key in allImages) {
-                        var image = allImages[key];
-                        if(wantedImages.indexOf(image.ID) != -1) {
-                            images.push(image);
-                        }
-                    }
-                } else if(program.startImage) {
-                    var found = false;
-                    for(key in allImages) {
-                        var image = allImages[key];
-                        if(!found && image.ID == program.startImage) {
-                            found = true;
-                        }
-
-                        if(found) {
-                            images.push(image);
-                        }
-                    }
-                } else {
-                    images = allImages;
-                }
+                var images = filterImages(allImages);
 
                 callback(null, images);
             }, -2);
@@ -236,6 +214,77 @@ function main(){
             }
         });
     });
+}
+
+function filterImages(allImages){
+    var allImagesFiltered = [];
+    var images = [];
+
+    // there is single id datastore filter
+    if( ! isNaN(program.datastore) && ! /,/i.test(program.datastore)) {
+        var datastoreId = parseInt(program.datastore);
+
+        for(var key1 in allImages) if (allImages.hasOwnProperty(key1)) {
+            var image1 = allImages[key1];
+            if(parseInt(image1.DATASTORE_ID) === datastoreId){
+                allImagesFiltered.push(image1);
+            }
+        }
+
+        // replace all images by filtered array from only specified datastore.
+        // so we can continue to filter by startImage or image option
+        allImages = allImagesFiltered;
+    }
+
+    // there is comma separated list of datastore ids to filter
+    if(/,/i.test(program.datastore)){
+        var wantedDatastores = program.datastore.split(',');
+
+        for(var key2 in allImages) if (allImages.hasOwnProperty(key2)) {
+            var image2 = allImages[key2];
+            if(wantedDatastores.indexOf(image2.DATASTORE_ID) !== -1){
+                allImagesFiltered.push(image2);
+            }
+        }
+
+        // replace all images by filtered array from only specified datastore.
+        // so we can continue to filter by startImage or image option
+        allImages = allImagesFiltered;
+    }
+
+    // there is comma separated list of image ids
+    if(/,/i.test(program.image)) {
+        var wantedImages = program.image.split(',');
+        for(var key3 in allImages) if (allImages.hasOwnProperty(key3)) {
+            var image3 = allImages[key3];
+            if(wantedImages.indexOf(image3.ID) !== -1) {
+                images.push(image3);
+            }
+        }
+
+        return images;
+    }
+
+    // there is option startImage
+    if(program.startImage) {
+        var found = false;
+        var startImage = parseInt(program.startImage);
+
+        for(var key4 in allImages) if (allImages.hasOwnProperty(key4)) {
+            var image4 = allImages[key4];
+            if(!found && parseInt(image4.ID) === startImage) {
+                found = true;
+            }
+
+            if(found) {
+                images.push(image4);
+            }
+        }
+
+        return images;
+    }
+
+    return allImages;
 }
 
 function processImage(image, callback){
