@@ -33,6 +33,7 @@ program
 	.version('1.4.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
+    .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -74,7 +75,7 @@ function main(){
 
                 var result = {};
 
-                for(var key in datastores){
+                for(var key in datastores) if (datastores.hasOwnProperty(key)) {
                     var ds = datastores[key];
                     result[ds.ID] = ds;
                 }
@@ -94,31 +95,8 @@ function main(){
 
             one.getImages(function(err, allImages) {
                 if (err) return callback(err);
-                var images = [];
 
-                if(/,/i.test(program.image)) {
-                    var wantedImages = program.image.split(',');
-                    for(key in allImages) {
-                        var image = allImages[key];
-                        if(wantedImages.indexOf(image.ID) != -1) {
-                            images.push(image);
-                        }
-                    }
-                } else if(program.startImage) {
-                    var found = false;
-                    for(key in allImages) {
-                        var image = allImages[key];
-                        if(!found && image.ID == program.startImage) {
-                            found = true;
-                        }
-
-                        if(found) {
-                            images.push(image);
-                        }
-                    }
-                } else {
-                    images = allImages;
-                }
+                var images = filterImages(allImages);
 
                 callback(null, images);
             }, -2);
@@ -152,13 +130,14 @@ function main(){
                                 return callback(null);
                             }
 
-                            for(var cmdKey in backupCmd){
+                            var options;
+                            for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
                                 var cmd = backupCmd[cmdKey];
-                                var options = {silent : true};
+                                options = {silent : true};
 
                                 if(program.verbose){
                                     console.log('Run cmd: ' + cmd);
-                                    var options = {silent : false};
+                                    options = {silent : false};
                                 }
 
                                 var result = shell.exec(cmd, options);
@@ -191,14 +170,15 @@ function main(){
             }
 
             // backup deployments files from system DS
+            var options;
             if(program.deployments) {
-                var options = {silent : true};
+                options = {silent : true};
 
                 if(program.verbose) {
                     console.log('Backup deployments - system datastores without non-persistent disks...');
                 }
 
-                for(var key in results.datastores) {
+                for(var key in results.datastores) if (results.datastores.hasOwnProperty(key)) {
                     var datastore = results.datastores[key];
 
                     // filter just system datastores with TM_MAD == qcow2
@@ -221,7 +201,7 @@ function main(){
                     // setup verbosity and print command
                     if(program.verbose) {
                         console.log('Run cmd: ' + cmd);
-                        var options = {silent: false};
+                        options = {silent: false};
                     }
 
                     // run command
@@ -236,9 +216,81 @@ function main(){
     });
 }
 
+function filterImages(allImages){
+    var allImagesFiltered = [];
+    var images = [];
+
+    // there is single id datastore filter
+    if( ! isNaN(program.datastore) && ! /,/i.test(program.datastore)) {
+        var datastoreId = parseInt(program.datastore);
+
+        for(var key1 in allImages) if (allImages.hasOwnProperty(key1)) {
+            var image1 = allImages[key1];
+            if(parseInt(image1.DATASTORE_ID) === datastoreId){
+                allImagesFiltered.push(image1);
+            }
+        }
+
+        // replace all images by filtered array from only specified datastore.
+        // so we can continue to filter by startImage or image option
+        allImages = allImagesFiltered;
+    }
+
+    // there is comma separated list of datastore ids to filter
+    if(/,/i.test(program.datastore)){
+        var wantedDatastores = program.datastore.split(',');
+
+        for(var key2 in allImages) if (allImages.hasOwnProperty(key2)) {
+            var image2 = allImages[key2];
+            if(wantedDatastores.indexOf(image2.DATASTORE_ID) !== -1){
+                allImagesFiltered.push(image2);
+            }
+        }
+
+        // replace all images by filtered array from only specified datastore.
+        // so we can continue to filter by startImage or image option
+        allImages = allImagesFiltered;
+    }
+
+    // there is comma separated list of image ids
+    if(/,/i.test(program.image)) {
+        var wantedImages = program.image.split(',');
+        for(var key3 in allImages) if (allImages.hasOwnProperty(key3)) {
+            var image3 = allImages[key3];
+            if(wantedImages.indexOf(image3.ID) !== -1) {
+                images.push(image3);
+            }
+        }
+
+        return images;
+    }
+
+    // there is option startImage
+    if(program.startImage) {
+        var found = false;
+        var startImage = parseInt(program.startImage);
+
+        for(var key4 in allImages) if (allImages.hasOwnProperty(key4)) {
+            var image4 = allImages[key4];
+            if(!found && parseInt(image4.ID) === startImage) {
+                found = true;
+            }
+
+            if(found) {
+                images.push(image4);
+            }
+        }
+
+        return images;
+    }
+
+    return allImages;
+}
+
 function processImage(image, callback){
     var imageId = parseInt(image.ID);
     var vmId = parseInt(image.VMS.ID);
+    var vms;
 
     // not used images or non persistent
     if(!vmId || image.PERSISTENT === '0') {
@@ -248,9 +300,9 @@ function processImage(image, callback){
 
         if(vmId && image.PERSISTENT === '0' && (program.verbose || program.dryRun)){
             if(image.VMS.ID instanceof Array) {
-                var vms = image.VMS.ID.join(',');
+                vms = image.VMS.ID.join(',');
             } else {
-                var vms = image.VMS.ID;
+                vms = image.VMS.ID;
             }
 
             console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, vms);
@@ -278,7 +330,7 @@ function processImage(image, callback){
 
         var excludedDisks = [];
 
-        for(key in vm.TEMPLATE.DISK){
+        for(key in vm.TEMPLATE.DISK) if (vm.TEMPLATE.DISK.hasOwnProperty(key)) {
             var disk = vm.TEMPLATE.DISK[key];
             var vmImageId = parseInt(disk.IMAGE_ID);
 
@@ -300,6 +352,7 @@ function processImage(image, callback){
 function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks, callback){
     var active   = true;
     var hostname = vmGetHostname(vm);
+    var cmd;
 
     // if VM is not in state ACTIVE
     if(vm.STATE !== '3'){
@@ -317,9 +370,9 @@ function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks
 
     // backup commands generation
     if(active) {
-        var cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
+        cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
     } else {
-        var cmd = generateBackupCmd('standard', image);
+        cmd = generateBackupCmd('standard', image);
     }
 
     callback(null, cmd);
@@ -374,7 +427,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 
 		    // excluded disks
             var excludedDiskSpec = '';
-            for(var key in excludedDisks){
+            for(var key in excludedDisks) if (excludedDisks.hasOwnProperty(key)) {
                 var excludedDisk = excludedDisks[key];
 
                 excludedDiskSpec += ' --diskspec ' + excludedDisk + ',snapshot=no';
