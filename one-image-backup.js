@@ -30,10 +30,11 @@ var one;
 
 // define program
 program
-	.version('1.4.1')
+	.version('1.6.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
-    .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores')
+    .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
+    .option('-l --label <label>', 'label or comma separated list of labels of tagged images or datastores')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -105,65 +106,72 @@ function main(){
         // iterate over images
         async.eachSeries(results.images, function(image, callback){
             var datastore = results.datastores[image.DATASTORE_ID];
+            var datastoreLabels = getDatastoreLabelsArray(datastore);
+            var imageLabels = getImageLabelsArray(image);
 
             // backup images only from type FS datastores
-            if(datastore.TEMPLATE.TM_MAD === 'qcow2') {
-                return async.series([
-                    function(callback) {
-                        // Update image template with info about backup is started
-                        if(program.dryRun) {
-                            return callback(null);
-                        }
-
-                        var imageRsrc = one.getImage(parseInt(image.ID));
-                        imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
-                    },
-                    function(callback) {
-                        processImage(image, function(err, backupCmd){
-                            if(err) {
-                                return callback(err);
-                            }
-
-                            // dry run, just print out commands
-                            if(program.dryRun){
-                                console.log(backupCmd.join("\n"));
-                                return callback(null);
-                            }
-
-                            var options;
-                            for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
-                                var cmd = backupCmd[cmdKey];
-                                options = {silent : true};
-
-                                if(program.verbose){
-                                    console.log('Run cmd: ' + cmd);
-                                    options = {silent : false};
-                                }
-
-                                var result = shell.exec(cmd, options);
-
-                                if(result.code !== 0){
-                                    process.exit(1);
-                                }
-                            }
-
-                            callback(null);
-                        });
-                    },
-                    function(callback){
-                        // Update image template with info about backup is finished
-                        if(program.dryRun) {
-                            return callback(null);
-                        }
-
-                        var imageRsrc = one.getImage(parseInt(image.ID));
-                        imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
-                    }
-                ], callback);
+            // skip other types
+            if(datastore.TEMPLATE.TM_MAD !== 'qcow2') {
+              return callback(null);
             }
+            
+            // filter out datastores not labeled by specified label
+            if( ! meetsLabelFilter(datastoreLabels) && ! meetsLabelFilter(imageLabels)) {
+              return callback(null);
+            }
+            
+            async.series([
+              function(callback) {
+                  // Update image template with info about backup is started
+                  if(program.dryRun) {
+                      return callback(null);
+                  }
 
-            // skip
-            callback(null);
+                  var imageRsrc = one.getImage(parseInt(image.ID));
+                  imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
+              },
+              function(callback) {
+                  processImage(image, function(err, backupCmd){
+                      if(err) {
+                          return callback(err);
+                      }
+
+                      // dry run, just print out commands
+                      if(program.dryRun){
+                          console.log(backupCmd.join("\n"));
+                          return callback(null);
+                      }
+
+                      var options;
+                      for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
+                          var cmd = backupCmd[cmdKey];
+                          options = {silent : true};
+
+                          if(program.verbose){
+                              console.log('Run cmd: ' + cmd);
+                              options = {silent : false};
+                          }
+
+                          var result = shell.exec(cmd, options);
+
+                          if(result.code !== 0){
+                              process.exit(1);
+                          }
+                      }
+
+                      callback(null);
+                  });
+              },
+              function(callback){
+                  // Update image template with info about backup is finished
+                  if(program.dryRun) {
+                      return callback(null);
+                  }
+
+                  var imageRsrc = one.getImage(parseInt(image.ID));
+                  imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
+              }
+          ], callback);
         }, function (err) {
             if(err) {
                 process.exit(1);
@@ -285,6 +293,29 @@ function filterImages(allImages){
     }
 
     return allImages;
+}
+
+function meetsLabelFilter(labels) {
+  if( ! program.label) {
+    return true;
+  }
+  
+  if( ! /,/i.test(program.label) && labels.indexOf(program.label) !== -1) {
+    return true;
+  }
+  
+  if(/,/i.test(program.label)) {
+    var wantedLabels = program.label.split(',');
+    
+    for(var key in wantedLabels) if(wantedLabels.hasOwnProperty(key)) {
+      var wantedLabel = wantedLabels[key];
+      if(labels.indexOf(wantedLabel) !== -1) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 function processImage(image, callback){
@@ -496,4 +527,20 @@ function vmGetHostname(vm){
     var history = JSON.parse(JSON.stringify(vm.HISTORY_RECORDS.HISTORY));
 
     return history.pop().HOSTNAME;
+}
+
+function getDatastoreLabelsArray(datastore){
+  if(datastore.TEMPLATE.LABELS !== undefined){
+    return datastore.TEMPLATE.LABELS.split(',');
+  }
+  
+  return [];
+}
+
+function getImageLabelsArray(image){
+  if(image.TEMPLATE.LABELS !== undefined){
+    return image.TEMPLATE.LABELS.split(',');
+  }
+  
+  return [];
 }
