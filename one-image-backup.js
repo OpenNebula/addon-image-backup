@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.6.1')
+	.version('1.6.3')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
@@ -440,7 +440,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
             
             // check image if driver is qcow2
 			if(image.TEMPLATE.DRIVER === 'qcow2' && program.check) {
-			    cmd.push('qemu-img check ' + dstPath);
+			    cmd.push('qemu-img check ' + dstPath + '.tmp');
 			}
 			
 			// replace old image by new one
