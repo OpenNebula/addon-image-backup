@@ -119,61 +119,111 @@ function main(){
             if( ! meetsLabelFilter(datastoreLabels) && ! meetsLabelFilter(imageLabels)) {
               return callback(null);
             }
-            
+
+            // get image resource
+            var imageRsrc = one.getImage(parseInt(image.ID));
+
+            // get vm resource
+            var vmRsrc = null;
+            var vmId = parseInt(image.VMS.ID);
+            if(vmId && image.PERSISTENT === '1') {
+                vmRsrc = one.getVM(vmId);
+            }
+
             async.series([
-              function(callback) {
+                // set backup info to image
+                function(callback) {
                   // Update image template with info about backup is started
                   if(program.dryRun) {
                       return callback(null);
                   }
 
-                  var imageRsrc = one.getImage(parseInt(image.ID));
                   imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
-              },
-              function(callback) {
-                  processImage(image, function(err, backupCmd){
-                      if(err) {
-                          return callback(err);
-                      }
+                },
+                // lock image
+                function (callback) {
+                    if(program.verbose) {
+                        console.log('#============================================================');
+                        console.log('Lock image ID: %d', image.ID);
+                    }
 
-                      // dry run, just print out commands
-                      if(program.dryRun){
-                          console.log(backupCmd.join("\n"));
-                          return callback(null);
-                      }
+                    imageRsrc.lock(4, callback);
+                },
+                // lock vm
+                function (callback) {
+                    if (vmRsrc) {
+                        if(program.verbose) {
+                            console.log('Lock VM ID: %d', vmId);
+                        }
 
-                      var options;
-                      for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
-                          var cmd = backupCmd[cmdKey];
-                          options = {silent : true};
+                        vmRsrc.lock(4, callback);
+                    }
+                },
+                // run backup cmds
+                function(callback) {
+                    processImage(image, function(err, backupCmd){
+                        if(err) {
+                            return callback(err);
+                        }
 
-                          if(program.verbose){
-                              console.log('Run cmd: ' + cmd);
-                              options = {silent : false};
-                          }
+                        // dry run, just print out commands
+                        if(program.dryRun){
+                            console.log(backupCmd.join("\n"));
+                            return callback(null);
+                        }
 
-                          var result = shell.exec(cmd, options);
+                        var options;
+                        for(var cmdKey in backupCmd) if (backupCmd.hasOwnProperty(cmdKey)) {
+                            var cmd = backupCmd[cmdKey];
+                            options = {silent : true};
 
-                          if(result.code !== 0){
-                              process.exit(1);
-                          }
-                      }
+                            if(program.verbose){
+                                console.log('Run cmd: ' + cmd);
+                                options = {silent : false};
+                            }
 
-                      callback(null);
-                  });
-              },
-              function(callback){
+                            var result = shell.exec(cmd, options);
+
+                            if(result.code !== 0){
+                                process.exit(1);
+                            }
+                        }
+
+                        callback(null);
+                    });
+                },
+                // unlock vm
+                function (callback) {
+                    if (vmRsrc) {
+                        if(program.verbose) {
+                            console.log('Unlock VM ID: %d', vmId);
+                        }
+
+                        vmRsrc.unlock(callback);
+                    }
+                },
+                // unlock image
+                function (callback) {
+                    if(program.verbose) {
+                        console.log('Unlock image ID: %d', image.ID);
+                        console.log('#============================================================');
+                    }
+
+                    imageRsrc.unlock(callback);
+                },
+                // set backup info to image
+                function(callback){
                   // Update image template with info about backup is finished
                   if(program.dryRun) {
                       return callback(null);
                   }
 
-                  var imageRsrc = one.getImage(parseInt(image.ID));
                   imageRsrc.update('BACKUP_IN_PROGRESS=NO BACKUP_FINISHED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_FINISHED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
-              }
+                }
           ], callback);
         }, function (err) {
             if(err) {
+                console.log(err);
                 process.exit(1);
             }
 
