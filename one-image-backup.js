@@ -156,8 +156,10 @@ function main(){
                             console.log('Lock VM ID: %d', vmId);
                         }
 
-                        vmRsrc.lock(4, callback);
+                        return vmRsrc.lock(4, callback);
                     }
+
+                    callback(null);
                 },
                 // run backup cmds
                 function(callback) {
@@ -199,8 +201,10 @@ function main(){
                             console.log('Unlock VM ID: %d', vmId);
                         }
 
-                        vmRsrc.unlock(callback);
+                        return vmRsrc.unlock(callback);
                     }
+
+                    callback(null);
                 },
                 // unlock image
                 function (callback) {
