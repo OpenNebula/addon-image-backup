@@ -46,5 +46,8 @@ module.exports = {
     // force to use --quiesce option durring live snapshot
     // freeze filesystem using qemu-guest-agent
     // usefull if there is not enabled qemu-guest-agent directly on VM template, but system wide
-    libvirtUseQuiesce: false
+    libvirtUseQuiesce: false,
+
+    // calls virsh domfstrim before snapshot is create
+    libvirtUseDomFsTrim: true
 }
