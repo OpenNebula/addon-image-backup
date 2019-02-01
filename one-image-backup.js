@@ -30,11 +30,12 @@ var one;
 
 // define program
 program
-	.version('1.8.0')
+	.version('1.9.0')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
     .option('-l --label <label>', 'label or comma separated list of labels of tagged images or datastores')
+    .option('-e --exclude <label>', 'skip (exclude) by label or comma separated list of labels of tagged images or datastores')
     .option('-k --insecure', 'use the weakest but fastest SSH encryption')
     .option('-n --netcat', 'use the netcat instead of rsync (just for main image files, *.snap dir still use rsync)')
     .option('-c --check', 'check img using qemu-img check cmd after transfer')
@@ -106,18 +107,27 @@ function main(){
         // iterate over images
         async.eachSeries(results.images, function(image, callback){
             var datastore = results.datastores[image.DATASTORE_ID];
-            var datastoreLabels = getDatastoreLabelsArray(datastore);
-            var imageLabels = getImageLabelsArray(image);
 
             // backup images only from type FS datastores
             // skip other types
             if(datastore.TEMPLATE.TM_MAD !== 'qcow2') {
               return callback(null);
             }
-            
-            // filter out datastores not labeled by specified label
-            if( ! meetsLabelFilter(datastoreLabels) && ! meetsLabelFilter(imageLabels)) {
-              return callback(null);
+
+            // filter out datastores and images (not) labeled by specified label
+            if(program.label || program.exclude) {
+                var datastoreLabels = getDatastoreLabelsArray(datastore);
+                var imageLabels = getImageLabelsArray(image);
+
+                // no match for requested labels, so skipping this image
+                if (program.label && !meetsLabelFilter(program.label, datastoreLabels) && !meetsLabelFilter(program.label, imageLabels)) {
+                    return callback(null);
+                }
+
+                // match for exclude labels, so skipping this image
+                if (program.exclude && (meetsLabelFilter(program.exclude, datastoreLabels) || meetsLabelFilter(program.exclude, imageLabels))) {
+                    return callback(null);
+                }
             }
 
             // get image resource
@@ -349,17 +359,15 @@ function filterImages(allImages){
     return allImages;
 }
 
-function meetsLabelFilter(labels) {
-  if( ! program.label) {
+function meetsLabelFilter(label, labels) {
+  // just one label defined
+  if( ! /,/i.test(label) && labels.indexOf(label) !== -1) {
     return true;
   }
-  
-  if( ! /,/i.test(program.label) && labels.indexOf(program.label) !== -1) {
-    return true;
-  }
-  
-  if(/,/i.test(program.label)) {
-    var wantedLabels = program.label.split(',');
+
+  // more labels defined
+  if(/,/i.test(label)) {
+    var wantedLabels = label.split(',');
     
     for(var key in wantedLabels) if(wantedLabels.hasOwnProperty(key)) {
       var wantedLabel = wantedLabels[key];
