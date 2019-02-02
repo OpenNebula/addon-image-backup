@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.9.0')
+	.version('1.9.1')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
@@ -518,7 +518,7 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
         case 'snapshotLive':
             // domfsfreeze
             if(config.libvirtUseDomFsTrim) {
-                cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c ' + config.libvirtUri + ' domfstrim one-' + vm.ID + '\'');
+                cmd.push('ssh oneadmin@' + hostname + ' \'virsh -c ' + config.libvirtUri + ' domfstrim one-' + vm.ID + '\' || exit 0');
             }
 
 		    var tmpDiskSnapshot = config.backupTmpDir + 'one-' + vm.ID + '-weekly-backup';
