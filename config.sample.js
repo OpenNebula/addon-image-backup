@@ -49,5 +49,9 @@ module.exports = {
     libvirtUseQuiesce: false,
 
     // calls virsh domfstrim before snapshot is create
-    libvirtUseDomFsTrim: true
+    libvirtUseDomFsTrim: true,
+
+    // lock VM and Image durring backup
+    // OpenNebula 5.6+ required
+    lockResources: true
 }

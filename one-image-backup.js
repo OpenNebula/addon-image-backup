@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.9.1')
+	.version('1.10.0')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
@@ -150,22 +150,21 @@ function main(){
 
                   imageRsrc.update('BACKUP_IN_PROGRESS=YES BACKUP_FINISHED_UNIX=--- BACKUP_FINISHED_HUMAN=--- BACKUP_STARTED_UNIX=' + Math.floor(Date.now() / 1000) + ' BACKUP_STARTED_HUMAN="' + dateTime.create().format('Y-m-d H:M:S') + '"', 1, callback);
                 },
-                // lock image
                 function (callback) {
-                    if(program.verbose) {
-                        console.log('#============================================================');
-                        console.log('Lock image ID: %d', image.ID);
+                    if(program.verbose) console.log('#============================================================');
+
+                    // lock image
+                    if(config.lockResources) {
+                        if(program.verbose) console.log('Lock image ID: %d', image.ID);
+                        return imageRsrc.lock(4, callback);
                     }
 
-                    imageRsrc.lock(4, callback);
+                    callback(null);
                 },
-                // lock vm
                 function (callback) {
-                    if (vmRsrc) {
-                        if(program.verbose) {
-                            console.log('Lock VM ID: %d', vmId);
-                        }
-
+                    // lock vm
+                    if(config.lockResources && vmRsrc) {
+                        if(program.verbose) console.log('Lock VM ID: %d', vmId);
                         return vmRsrc.lock(4, callback);
                     }
 
@@ -204,26 +203,25 @@ function main(){
                         callback(null);
                     });
                 },
-                // unlock vm
                 function (callback) {
-                    if (vmRsrc) {
-                        if(program.verbose) {
-                            console.log('Unlock VM ID: %d', vmId);
-                        }
-
+                    // unlock vm
+                    if(config.lockResources && vmRsrc) {
+                        if(program.verbose) console.log('Unlock VM ID: %d', vmId);
                         return vmRsrc.unlock(callback);
                     }
 
                     callback(null);
                 },
-                // unlock image
                 function (callback) {
-                    if(program.verbose) {
+                    // unlock image
+                    if(config.lockResources) {
                         console.log('Unlock image ID: %d', image.ID);
-                        console.log('#============================================================');
+                        if(program.verbose) console.log('#============================================================');
+                        return imageRsrc.unlock(callback);
                     }
 
-                    imageRsrc.unlock(callback);
+                    if(program.verbose) console.log('#============================================================');
+                    callback(null);
                 },
                 // set backup info to image
                 function(callback){
