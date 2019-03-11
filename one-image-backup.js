@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.10.0')
+	.version('1.11.0')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
@@ -172,7 +172,7 @@ function main(){
                 },
                 // run backup cmds
                 function(callback) {
-                    processImage(image, function(err, backupCmd){
+                    processImage(image, datastore, function(err, backupCmd){
                         if(err) {
                             return callback(err);
                         }
@@ -257,7 +257,7 @@ function main(){
                     }
 
                     // get random host form bridge list
-                    var hostname = config.bridgeList[Math.floor(Math.random()*config.bridgeList.length)];
+                    var hostname = getHostname(datastore);
 
                     // create backup command
                     var cmd = 'rsync -avhP --delete --exclude "disk.0.snap/0" oneadmin@' + hostname + ':' + datastore.BASE_PATH + '/ ' + config.backupDir + '/' + datastore.ID + '/';
@@ -378,7 +378,7 @@ function meetsLabelFilter(label, labels) {
   return false;
 }
 
-function processImage(image, callback){
+function processImage(image, datastore, callback){
     var imageId = parseInt(image.ID);
     var vmId = parseInt(image.VMS.ID);
     var vms;
@@ -399,7 +399,7 @@ function processImage(image, callback){
             console.log('Backup non-persistent image %s named %s attached to VMs %s', imageId, image.NAME, vms);
         }
 
-        var cmd = generateBackupCmd('standard', image);
+        var cmd = generateBackupCmd('standard', image, datastore);
         return callback(null, cmd);
     }
 
@@ -412,7 +412,7 @@ function processImage(image, callback){
         var vm = data.VM;
 
         if(vm.TEMPLATE.DISK.DISK_ID){
-            return backupUsedPersistentImage(image, imageId, vm, vmId, vm.TEMPLATE.DISK, [], function(err, data){
+            return backupUsedPersistentImage(image, imageId, datastore, vm, vmId, vm.TEMPLATE.DISK, [], function(err, data){
                 if(err) return callback(err);
 
                 callback(null, data);
@@ -432,7 +432,7 @@ function processImage(image, callback){
             }
         }
 
-        backupUsedPersistentImage(image, imageId, vm, vmId, vmDisk, excludedDisks, function(err, data){
+        backupUsedPersistentImage(image, imageId, datastore, vm, vmId, vmDisk, excludedDisks, function(err, data){
             if(err) return callback(err);
 
             callback(null, data);
@@ -440,9 +440,9 @@ function processImage(image, callback){
     });
 }
 
-function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks, callback){
+function backupUsedPersistentImage(image, imageId, datastore, vm, vmId, disk, excludedDisks, callback){
     var active   = true;
-    var hostname = vmGetHostname(vm);
+    var hostname = vmGetHostname(vm, datastore);
     var cmd;
 
     // if VM is not in state ACTIVE
@@ -461,22 +461,22 @@ function backupUsedPersistentImage(image, imageId, vm, vmId, disk, excludedDisks
 
     // backup commands generation
     if(active) {
-        cmd = generateBackupCmd('snapshotLive', image, vm, disk, excludedDisks);
+        cmd = generateBackupCmd('snapshotLive', image, datastore, vm, disk, excludedDisks);
     } else {
-        cmd = generateBackupCmd('standard', image);
+        cmd = generateBackupCmd('standard', image, datastore);
     }
 
     callback(null, cmd);
 }
 
-function generateBackupCmd(type, image, vm, disk, excludedDisks)
+function generateBackupCmd(type, image, datastore, vm, disk, excludedDisks)
 {
 	var srcPath, dstPath, mkDirPath;
 	var cmd = [];
 	
 	var sourcePath = image.SOURCE.split('/');
     var sourceName = sourcePath.pop();
-    var hostname   = vmGetHostname(vm);
+    var hostname   = vmGetHostname(vm, datastore);
     var sshCipher = '';
 	
 	if(program.insecure) sshCipher = ' -c arcfour128';
@@ -580,9 +580,9 @@ function generateBackupCmd(type, image, vm, disk, excludedDisks)
 	return cmd;
 }
 
-function vmGetHostname(vm){
+function vmGetHostname(vm, datastore){
     if(!vm){
-        return config.bridgeList[Math.floor(Math.random()*config.bridgeList.length)];
+        return getHostname(datastore);
     }
 
     if(vm.HISTORY_RECORDS.HISTORY.HOSTNAME){
@@ -592,6 +592,21 @@ function vmGetHostname(vm){
     var history = JSON.parse(JSON.stringify(vm.HISTORY_RECORDS.HISTORY));
 
     return history.pop().HOSTNAME;
+}
+
+function getHostname(datastore)
+{
+    var bridgeList = getHostnames(datastore);
+    return bridgeList[Math.floor(Math.random()*bridgeList.length)];
+}
+
+function getHostnames(datastore)
+{
+    if(datastore.TEMPLATE.BRIDGE_LIST !== undefined){
+        return datastore.TEMPLATE.BRIDGE_LIST.split(' ');
+    }
+
+    return config.bridgeList;
 }
 
 function getDatastoreLabelsArray(datastore){
