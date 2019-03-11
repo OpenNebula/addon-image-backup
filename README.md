@@ -103,6 +103,7 @@ module.exports = {
     backupServerIp: '192.168.2.8',
     
     // List of compute nodes in cluster.
+    // This is fallback only now. By default BRIDGE_LIST from DATASTORE is used.
     // Used for downloading persistent images not attached to any vm,
     // non-persistent images and deployments files
     // This have to be valid DNS names, which resolves to IPs
