@@ -30,7 +30,7 @@ var one;
 
 // define program
 program
-	.version('1.11.0')
+	.version('1.12.0')
     .option('-i --image <image_id>', 'image id or comma separated list of image ids to backup. Omit for backup all images')
     .option('-S --start-image <image_id>', 'image id to start from backup. Backups all following images including defined one', parseInt)
     .option('-a --datastore <datastore_id>', 'datastore id or comma separated list of datastore ids to backup from. Omit to backup from all datastores to backup')
@@ -493,7 +493,7 @@ function generateBackupCmd(type, image, datastore, vm, disk, excludedDisks)
 
             // backup image
             if(program.netcat) {
-                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 30 ' + config.backupServerIp + ' 5000\'');
             } else {
                 cmd.push('rsync -aHAXxWv --inplace --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath + '.tmp');
             }
@@ -551,7 +551,7 @@ function generateBackupCmd(type, image, datastore, vm, disk, excludedDisks)
 
 			// backup image
 			if(program.netcat) {
-                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 3 ' + config.backupServerIp + ' 5000\'');
+                cmd.push('nc -l -p 5000 | dd of=' + dstPath + '.tmp & ssh oneadmin@' + hostname + ' \'dd if=' + image.SOURCE + ' | nc -w 30 ' + config.backupServerIp + ' 5000\'');
             } else {
 			    cmd.push('rsync -aHAXxWv --inplace --numeric-ids --progress -e "ssh -T' + sshCipher + ' -o Compression=no -x" oneadmin@' + hostname + ':' + image.SOURCE + ' ' + dstPath + '.tmp');
 			}
