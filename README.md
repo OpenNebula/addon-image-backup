@@ -33,7 +33,7 @@ This add-on is compatible with OpenNebula 5.0+, NodeJS 5.10.1+ and NPM 3.8.3+
 
 ### OpenNebula Node(s)
 
-* The node(s) must have QEMU 2.1+, Libvirt 1.2.9+ and Rsync available.
+* The node(s) must have QEMU 2.9+, Libvirt 1.2.9+ and Rsync available.
 * If you want use the weakest but fastest SSH encryption them you must specify `Ciphers arcfour128` in `/etc/ssh/sshd_config`
 
 Example sshd_config:
